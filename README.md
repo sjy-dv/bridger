@@ -5,9 +5,9 @@
 Bridger is a framework designed to support microservices architecture, enabling developers to easily build and manage microservices. This framework focuses on reducing the complexity of constructing and integrating microservices by allowing services to be registered and used in a manner similar to REST APIs. It provides a simplified approach to microservice development and management, streamlining the process of service deployment and communication within a distributed system.
 
 
-Bridger fundamentally understands the multiplexing of gRPC and requires only one connection as a default. However, depending on the state of the application, a single connection might not be sufficient, or it could lead to overloading the target server. To address this, Bridger always provides a pool that can configure additional connections.
+Bridger primarily operates on the principle of gRPC multiplexing, which typically necessitates only a single connection. However, in certain situations, a single connection may prove insufficient, or might risk overloading the target server. To mitigate this, Bridger consistently offers a pool for establishing additional connections.
 
-This feature ensures that even if Server A becomes overloaded and Server A2 is added for load balancing, the traffic does not continuously request Server A alone, due to its singleton nature. This mechanism helps in efficiently managing server loads and traffic distribution.
+This approach ensures that if Server A becomes overloaded and Server A2 is deployed for load balancing, the traffic is continuously directed to Server A alone, due to its singleton nature. This strategy prevents the consistent channeling of traffic to a single server, thus efficiently managing server loads and distributing traffic more effectively.
 
 
 1. Use `go get` to install the latest version of the Bridger Client and Sever dependencies:
