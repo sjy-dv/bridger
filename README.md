@@ -72,6 +72,12 @@ func main() {
 3. Server Example:
 
 ```go
+import (
+	"github.com/sjy-dv/bridger/server"
+	"github.com/sjy-dv/bridger/server/dispatcher"
+	"github.com/sjy-dv/bridger/server/options"
+)
+
 func main() {
 	bridger := server.New()
     // you can use register function like rest api
