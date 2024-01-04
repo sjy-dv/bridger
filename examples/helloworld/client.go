@@ -1,9 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/sjy-dv/bridger/client"
@@ -49,26 +47,4 @@ func main() {
 		panic(err)
 	}
 	log.Println("Second Message : ", response.Msg)
-
-	// test
-	var wg sync.WaitGroup
-	wg.Add(60)
-	for i := 0; i < 60; i++ {
-		go func(num int) {
-			defer wg.Done()
-			header := client.MetadataHeader{}
-			header["name"] = fmt.Sprintf("gopher %d", num)
-			val, err = bridgerClient.Dispatch("/greetings/withname", &req{Msg: "I'm gopher"}, header)
-			if err != nil {
-				panic(err)
-			}
-			response = &req{}
-			err = client.Unmarshal(val, response)
-			if err != nil {
-				panic(err)
-			}
-			log.Println("Concurrency Message : ", response.Msg)
-		}(i)
-	}
-	wg.Wait()
 }
