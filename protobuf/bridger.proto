@@ -1,0 +1,29 @@
+syntax="proto3";
+
+option go_package="./bridgerpb";
+
+package bridgerpb;
+
+import "google/protobuf/empty.proto";
+
+message PayloadEmitter {
+    bytes payload=1;
+    string domain=2;
+    bool multiple=3;
+}
+
+message PayloadReceiver {
+    bytes payload=1;
+    bool multiple=2;
+    ErrorInfo info=3;
+}
+
+message ErrorInfo {
+    string reason=1;
+    string domain=2;
+}
+
+service Bridger {
+    rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+    rpc Dispatch(PayloadEmitter) returns (PayloadReceiver) {}
+}
