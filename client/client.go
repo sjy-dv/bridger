@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/sjy-dv/bridger/client/options"
-	"github.com/sjy-dv/bridger/protobuf/bridgerpb"
+	pb "github.com/sjy-dv/bridger/grpc/protocol/v0"
 	"github.com/vmihailenco/msgpack/v5"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -69,13 +69,20 @@ func RegisterBridgerClient(opt *options.Options) *bridgerAgent {
 	}()
 	agents.addr = opt.Addr
 	agents.pool = make([]*connectionpool, opt.MinChannelSize)
+	clientOpts := []grpc.DialOption{}
+	clientOpts = append(clientOpts, []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
+			grpc.MaxCallSendMsgSize(maxSendMsgSize),
+		),
+	}...)
+	if opt.ClientInterceptor != nil {
+		clientOpts = append(clientOpts, grpc.WithUnaryInterceptor(opt.ClientInterceptor))
+	}
 	for i := 0; i < opt.MinChannelSize; i++ {
 		status := true
-		conn, err := grpc.Dial(agents.addr, grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithDefaultCallOptions(
-				grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
-				grpc.MaxCallSendMsgSize(maxSendMsgSize),
-			))
+		conn, err := grpc.Dial(agents.addr, clientOpts...)
 		if err != nil {
 			conn = nil
 			status = false
@@ -125,10 +132,10 @@ func (agent *bridgerAgent) Dispatch(domain string, v interface{}, callOPtions ..
 		}
 	}
 
-	val, err := bridgerpb.NewBridgerClient(
+	val, err := pb.NewBridgerClient(
 		agent.getConnection().connection).Dispatch(
 		ctx,
-		&bridgerpb.PayloadEmitter{
+		&pb.PayloadEmitter{
 			Payload: data,
 			Domain:  domain,
 		},

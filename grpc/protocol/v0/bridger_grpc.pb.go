@@ -4,7 +4,7 @@
 // - protoc             v3.19.6
 // source: bridger/bridger.proto
 
-package bridgerpb
+package protocol
 
 import (
 	context "context"
@@ -20,8 +20,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Bridger_Ping_FullMethodName     = "/bridgerpb.Bridger/Ping"
-	Bridger_Dispatch_FullMethodName = "/bridgerpb.Bridger/Dispatch"
+	Bridger_Ping_FullMethodName     = "/bridger.v0.Bridger/Ping"
+	Bridger_Dispatch_FullMethodName = "/bridger.v0.Bridger/Dispatch"
 )
 
 // BridgerClient is the client API for Bridger service.
@@ -128,7 +128,7 @@ func _Bridger_Dispatch_Handler(srv interface{}, ctx context.Context, dec func(in
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Bridger_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "bridgerpb.Bridger",
+	ServiceName: "bridger.v0.Bridger",
 	HandlerType: (*BridgerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

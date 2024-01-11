@@ -1,11 +1,21 @@
 package options
 
+import (
+	"context"
+
+	"google.golang.org/grpc"
+)
+
 type Options struct {
 	Port                         int
 	ChainUnaryInterceptorLogger  bool
 	ChainStreamInterceptorLogger bool
 	MaxRecvMsgSize               int
 	MaxSendMsgSize               int
+	ServerInterceptor            func(ctx context.Context,
+		req interface{},
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler) (interface{}, error)
 }
 
 const (

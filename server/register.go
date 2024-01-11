@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/sjy-dv/bridger/protobuf/bridgerpb"
+	pb "github.com/sjy-dv/bridger/grpc/protocol/v0"
+
 	"github.com/sjy-dv/bridger/server/dispatcher"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type rpcDispatcher struct {
-	bridgerpb.UnimplementedBridgerServer
+	pb.UnimplementedBridgerServer
 	DispatchService *dispatchService
 }
 
@@ -22,9 +23,9 @@ func (dispatch *rpcDispatcher) Ping(ctx context.Context, req *emptypb.Empty) (*e
 	return &emptypb.Empty{}, nil
 }
 
-func (dispatch *rpcDispatcher) Dispatch(ctx context.Context, req *bridgerpb.PayloadEmitter) (*bridgerpb.PayloadReceiver, error) {
+func (dispatch *rpcDispatcher) Dispatch(ctx context.Context, req *pb.PayloadEmitter) (*pb.PayloadReceiver, error) {
 	type reply struct {
-		Result *bridgerpb.PayloadReceiver
+		Result *pb.PayloadReceiver
 		Error  error
 	}
 	c := make(chan reply, 1)

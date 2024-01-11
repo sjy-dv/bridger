@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/sirupsen/logrus"
-	"github.com/sjy-dv/bridger/protobuf/bridgerpb"
+	pb "github.com/sjy-dv/bridger/grpc/protocol/v0"
 	"github.com/vmihailenco/msgpack/v5"
 	"google.golang.org/grpc/metadata"
 )
@@ -24,7 +24,7 @@ type DispatchContext struct {
 }
 
 type ResponseWriter struct {
-	*bridgerpb.PayloadReceiver
+	*pb.PayloadReceiver
 }
 
 var DMap = make(map[string]func(ctx DispatchContext) *ResponseWriter)
@@ -82,8 +82,8 @@ func (dtx *DispatchContext) GetMetadata(key string) string {
 }
 
 func (dtx *DispatchContext) Error(err error) *ResponseWriter {
-	paylod := &bridgerpb.PayloadReceiver{
-		Info: &bridgerpb.ErrorInfo{
+	paylod := &pb.PayloadReceiver{
+		Info: &pb.ErrorInfo{
 			Domain: dtx.Domain,
 			Reason: err.Error(),
 		},
@@ -96,7 +96,7 @@ func (dtx *DispatchContext) Reply(v interface{}) *ResponseWriter {
 	if err != nil {
 		return dtx.Error(err)
 	}
-	resultValue := &bridgerpb.PayloadReceiver{
+	resultValue := &pb.PayloadReceiver{
 		Payload: payload,
 	}
 	return &ResponseWriter{resultValue}

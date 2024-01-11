@@ -11,7 +11,7 @@ import (
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/sirupsen/logrus"
-	"github.com/sjy-dv/bridger/protobuf/bridgerpb"
+	pb "github.com/sjy-dv/bridger/grpc/protocol/v0"
 	"github.com/sjy-dv/bridger/server/dispatcher"
 	"github.com/sjy-dv/bridger/server/options"
 	"google.golang.org/grpc"
@@ -76,10 +76,14 @@ func (b *bridger) RegisterBridgerServer(opt *options.Options) error {
 			grpc.MaxSendMsgSize(options.DefaultMsgSize),
 		}...)
 	}
+	if opt.ServerInterceptor != nil {
+		b.Logger.WithField("action", "grpc_configure_server_interceptor")
+		serverOptions = append(serverOptions, grpc.UnaryInterceptor(opt.ServerInterceptor))
+	}
 	dispatch := rpcDispatcher{}
 	dispatch.DispatchService = &dispatchService{dispatch}
 	grpcServer := grpc.NewServer(serverOptions...)
-	bridgerpb.RegisterBridgerServer(grpcServer, dispatch.DispatchService)
+	pb.RegisterBridgerServer(grpcServer, dispatch.DispatchService)
 	b.Logger.WithField("action", "grpc_startup").Infof("grpc server listening at %v", lis.Addr())
 	if err := grpcServer.Serve(lis); err != nil {
 		b.Logger.WithError(err)

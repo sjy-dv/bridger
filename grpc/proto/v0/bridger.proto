@@ -1,8 +1,7 @@
 syntax="proto3";
 
-option go_package="./bridgerpb";
-
-package bridgerpb;
+package bridger.v0;
+option go_package="github.com/sjy-dv/bridger/grpc;protocol";
 
 import "google/protobuf/empty.proto";
 
