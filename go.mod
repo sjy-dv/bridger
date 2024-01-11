@@ -6,6 +6,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/pkg/errors v0.8.1
 	github.com/sirupsen/logrus v1.9.3
+	github.com/teris-io/shortid v0.0.0-20220617161101-71ec9f2aa569
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	google.golang.org/grpc v1.60.1
 	google.golang.org/protobuf v1.32.0

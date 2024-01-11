@@ -4,6 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"runtime"
+
+	_ "google.golang.org/grpc/encoding/gzip"
 
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
@@ -20,8 +23,9 @@ type bridger struct {
 
 func New() *bridger {
 	dispatcher.DMap = make(map[string]func(ctx dispatcher.DispatchContext) *dispatcher.ResponseWriter)
+	api := &dispatcher.DispatchAPI{}
 	return &bridger{
-		&dispatcher.DispatchAPI{},
+		api.NewDispatch(),
 	}
 }
 
@@ -35,6 +39,7 @@ func (b *bridger) RegisterBridgerServer(opt *options.Options) error {
 	}
 	serverOptions := []grpc.ServerOption{}
 	if opt.ChainStreamInterceptorLogger || opt.ChainUnaryInterceptorLogger {
+		b.Logger.WithField("action", "grpc_configure_logging")
 		logrus.ErrorKey = "grpc.error"
 		logrusEntry := logrus.NewEntry(logrus.StandardLogger())
 		if opt.ChainStreamInterceptorLogger {
@@ -50,14 +55,35 @@ func (b *bridger) RegisterBridgerServer(opt *options.Options) error {
 			))
 		}
 	}
+	if opt.MaxRecvMsgSize > 0 || opt.MaxSendMsgSize > 0 {
+		if opt.MaxRecvMsgSize > 0 {
+			serverOptions = append(serverOptions, grpc.MaxRecvMsgSize(opt.MaxRecvMsgSize))
+			b.Logger.WithField("action", fmt.Sprintf("grpc_configure_max_recv_msg_size : %v", opt.MaxRecvMsgSize)).
+				Info("needs to be synchronized with clients")
+		} else {
+			serverOptions = append(serverOptions, grpc.MaxRecvMsgSize(options.DefaultMsgSize))
+		}
+		if opt.MaxSendMsgSize > 0 {
+			serverOptions = append(serverOptions, grpc.MaxSendMsgSize(opt.MaxSendMsgSize))
+			b.Logger.WithField("action", fmt.Sprintf("grpc_configure_max_send_msg_size : %v", opt.MaxSendMsgSize)).
+				Info("needs to be synchronized with clients")
+		} else {
+			serverOptions = append(serverOptions, grpc.MaxSendMsgSize(options.DefaultMsgSize))
+		}
+	} else {
+		serverOptions = append(serverOptions, []grpc.ServerOption{
+			grpc.MaxRecvMsgSize(options.DefaultMsgSize),
+			grpc.MaxSendMsgSize(options.DefaultMsgSize),
+		}...)
+	}
 	dispatch := rpcDispatcher{}
 	dispatch.DispatchService = &dispatchService{dispatch}
 	grpcServer := grpc.NewServer(serverOptions...)
 	bridgerpb.RegisterBridgerServer(grpcServer, dispatch.DispatchService)
-	fmt.Println(fmt.Sprintf("Bridger Server Started on %d", opt.Port))
+	b.Logger.WithField("action", "grpc_startup").Infof("grpc server listening at %v", lis.Addr())
 	if err := grpcServer.Serve(lis); err != nil {
-		panic(err)
+		b.Logger.WithError(err)
+		runtime.Goexit()
 	}
-
 	return nil
 }

@@ -37,7 +37,9 @@ func main() {
 
 	header := client.MetadataHeader{}
 	header["name"] = "gopher"
-	val, err = bridgerClient.Dispatch("/greetings/withname", &req{Msg: "I'm gopher"}, header)
+	val, err = bridgerClient.Dispatch("/greetings/withname", &req{Msg: "I'm gopher"}, client.CallOptions{
+		MetadataHeader: header,
+	})
 	if err != nil {
 		panic(err)
 	}

@@ -2,10 +2,10 @@ package dispatcher
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 
+	"github.com/sirupsen/logrus"
 	"github.com/sjy-dv/bridger/protobuf/bridgerpb"
 	"github.com/vmihailenco/msgpack/v5"
 	"google.golang.org/grpc/metadata"
@@ -13,7 +13,8 @@ import (
 
 type DispatchAPI struct {
 	//todo
-	async sync.RWMutex
+	async  *sync.RWMutex
+	Logger *logrus.Logger
 }
 
 type DispatchContext struct {
@@ -28,9 +29,16 @@ type ResponseWriter struct {
 
 var DMap = make(map[string]func(ctx DispatchContext) *ResponseWriter)
 
+func (d *DispatchAPI) NewDispatch() *DispatchAPI {
+	return &DispatchAPI{
+		async:  &sync.RWMutex{},
+		Logger: logrus.New(),
+	}
+}
+
 func (d *DispatchAPI) Register(domain string, handler func(ctx DispatchContext) *ResponseWriter, subName ...string) {
 	d.async.Lock()
-	fmt.Println(fmt.Sprintf("[bridger] bridge registered route: %v", domain))
+	d.Logger.WithField("action", "register").Infof("[bridger] bridge registered route: %v", domain)
 	defer d.async.Unlock()
 	DMap[domain] = handler
 }

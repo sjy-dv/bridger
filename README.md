@@ -13,7 +13,7 @@ This approach ensures that if Server A becomes overloaded and Server A2 is deplo
 1. Use `go get` to install the latest version of the Bridger Client and Sever dependencies:
 
    ```shell
-   go get -u github.com/sjy-dv/bridger@v0.0.1
+   go get -u github.com/sjy-dv/bridger@latest
    ```
 
 2. Client Example:
