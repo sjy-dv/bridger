@@ -56,7 +56,9 @@ func main() {
     // you can easily use metadata
 	header := client.MetadataHeader{}
 	header["name"] = "gopher"
-	val, err = bridgerClient.Dispatch("/greetings/withname", &req{Msg: "I'm gopher"}, header)
+	val, err = bridgerClient.Dispatch("/greetings/withname", &req{Msg: "I'm gopher"}, client.CallOptions{
+		MetadataHeader: header,
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -123,3 +125,22 @@ func greetingsWithHeaderName(dtx dispatcher.DispatchContext) *dispatcher.Respons
 	return dtx.Reply(&req)
 }
 ```
+
+4. Overview Options
+
+| ClientOptions | Explanation |
+| ------ | ------ |
+| Addr | Enter the address of the server to connect to. (Example: localhost:50051) |
+| MinChannelSize | Specify the number of clients to connect. Typically, gRPC provides multiplexing, so one client is sufficient unless there is a special or high amount of traffic. (Default: 1) |
+| MaxChannelSize | Specify the maximum number of clients to connect. For smooth communication and handling of traffic requests, Bridger by default operates only 100 concurrent sessions per client. (Default: 4) |
+| Timeout | Specify the maximum duration for maintaining communication connections. The default value is the same as the disconnection time of the grpc Client. |
+| MaxRecvMsgSize | Set the maximum size for messages that can be received. This should be the same as the maximum message size sent by the server. (Default: 10mb) |
+| MaxSendMsgSize | Set the maximum size for messages that can be sent. This should be the same as the maximum message size that the server can receive. (Default: 10mb) |
+
+| ServerOptions | Explanation |
+| ------ | ------ |
+| Port | This is the port number to run on. There is no default value, and it must be entered. |
+| ChainUnaryInterceptorLogger | Activate the ChainUnaryInterceptorLogger. (Default: false) |
+| ChainStreamInterceptorLogger | Activate the ChainStreamInterceptorLogger. (Default: false) |
+| MaxRecvMsgSize | Set the maximum size for messages that can be received. This should be the same as the maximum message size sent by the client. (Default: 10mb) |
+| MaxSendMsgSize | Set the maximum size for messages that can be sent. This should be the same as the maximum message size that the client can receive. (Default: 10mb) |
