@@ -100,9 +100,19 @@ func RegisterBridgerClient(opt *options.Options) *BridgerAgent {
 			grpc.MaxCallSendMsgSize(maxSendMsgSize),
 		),
 	}
-	if opt.Credentials {
-		clientOpts = append(clientOpts, grpc.WithTransportCredentials(
-			credentials.NewTLS(&tls.Config{})))
+	if opt.Credentials.Enable {
+		if opt.Credentials.TLS != nil {
+			clientOpts = append(clientOpts, grpc.WithTransportCredentials(
+				credentials.NewTLS(opt.Credentials.TLS.Clone()),
+			))
+		} else if opt.Credentials.Cred != nil {
+			clientOpts = append(clientOpts, grpc.WithTransportCredentials(opt.Credentials.Cred))
+		} else {
+			clientOpts = append(clientOpts, grpc.WithTransportCredentials(
+				credentials.NewTLS(&tls.Config{
+					InsecureSkipVerify: true,
+				})))
+		}
 	} else {
 		clientOpts = append(clientOpts, grpc.WithTransportCredentials(
 			insecure.NewCredentials()))

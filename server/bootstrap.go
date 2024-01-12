@@ -8,6 +8,7 @@ import (
 	"time"
 
 	_ "google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
@@ -108,10 +109,16 @@ func (b *Bridger) RegisterBridgerServer(opt *options.Options) error {
 			Timeout: options.DefaultKeepAliveTimeout,
 		}))
 	}
+	if opt.Credentials.Enable && opt.Credentials.Cred != nil {
+		serverOptions = append(serverOptions, grpc.Creds(opt.Credentials.Cred.Clone()))
+	}
 	dispatch := rpcDispatcher{}
 	dispatch.DispatchService = &dispatchService{dispatch}
 	grpcServer := grpc.NewServer(serverOptions...)
 	pb.RegisterBridgerServer(grpcServer, dispatch.DispatchService)
+	if opt.HealthProbe {
+		grpc_health_v1.RegisterHealthServer(grpcServer, dispatch.healthCheck)
+	}
 	b.Logger.WithField("action", "grpc_startup").Infof("grpc server listening at %v", lis.Addr())
 	if err := grpcServer.Serve(lis); err != nil {
 		b.Logger.WithError(err)

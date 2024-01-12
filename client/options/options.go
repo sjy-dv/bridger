@@ -2,9 +2,11 @@ package options
 
 import (
 	"context"
+	"crypto/tls"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 type Options struct {
@@ -21,7 +23,13 @@ type Options struct {
 	KeepAliveTimeout time.Duration
 	KeepAliveTime    time.Duration
 	MaxSession       int32
-	Credentials      bool
+	Credentials      Credentials
+}
+
+type Credentials struct {
+	Enable bool
+	TLS    *tls.Config
+	Cred   credentials.TransportCredentials
 }
 
 const DefaultMsgSize = 104858000 // 10mb

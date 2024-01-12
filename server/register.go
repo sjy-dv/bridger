@@ -7,15 +7,21 @@ import (
 	pb "github.com/sjy-dv/bridger/grpc/protocol/v0"
 
 	"github.com/sjy-dv/bridger/server/dispatcher"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type rpcDispatcher struct {
 	pb.UnimplementedBridgerServer
 	DispatchService *dispatchService
+	healthCheck     *healthRpcService
 }
 
 type dispatchService struct {
+	rpcDispatcher
+}
+
+type healthRpcService struct {
 	rpcDispatcher
 }
 
@@ -49,4 +55,14 @@ func (dispatch *rpcDispatcher) Dispatch(ctx context.Context, req *pb.PayloadEmit
 	}()
 	res := <-c
 	return res.Result, res.Error
+}
+
+func (r healthRpcService) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+	retval := &grpc_health_v1.HealthCheckResponse{}
+	retval.Status = grpc_health_v1.HealthCheckResponse_SERVING
+	return retval, nil
+}
+
+func (r healthRpcService) Watch(*grpc_health_v1.HealthCheckRequest, grpc_health_v1.Health_WatchServer) error {
+	return nil
 }

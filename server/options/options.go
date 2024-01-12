@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 type Options struct {
@@ -20,6 +21,13 @@ type Options struct {
 	KeepAliveTimeout         time.Duration
 	KeepAliveTime            time.Duration
 	EnforcementPolicyMinTime time.Duration
+	Credentials              Credentials
+	HealthProbe              bool // you must include health_probe binary
+}
+
+type Credentials struct {
+	Enable bool
+	Cred   credentials.TransportCredentials
 }
 
 const (
