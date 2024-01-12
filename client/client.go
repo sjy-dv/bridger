@@ -12,8 +12,10 @@ import (
 	pb "github.com/sjy-dv/bridger/grpc/protocol/v0"
 	"github.com/vmihailenco/msgpack/v5"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"
 	_ "google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/keepalive"
 )
 
 type bridgerAgent struct {
@@ -56,6 +58,12 @@ func RegisterBridgerClient(opt *options.Options) *bridgerAgent {
 				opt.MaxChannelSize))
 		return opt.MaxChannelSize
 	}()
+	agents.maxsessions = func() int32 {
+		if opt.MaxSession == 0 {
+			return 100
+		}
+		return opt.MaxSession
+	}()
 	agents.minpoolsize = func() int {
 		if opt.MinChannelSize == 0 {
 			localLogging.WithField("action", "bridger-config-max-channel-size").
@@ -69,7 +77,21 @@ func RegisterBridgerClient(opt *options.Options) *bridgerAgent {
 	}()
 	agents.addr = opt.Addr
 	agents.pool = make([]*connectionpool, opt.MinChannelSize)
-	clientOpts := []grpc.DialOption{}
+	clientOpts := []grpc.DialOption{
+		grpc.WithBlock(),
+		grpc.FailOnNonTempDialError(true),
+		grpc.WithReturnConnectionError(),
+		grpc.WithDisableRetry(),
+		grpc.WithConnectParams(grpc.ConnectParams{
+			Backoff: backoff.Config{
+				BaseDelay:  100 * time.Millisecond,
+				Multiplier: 1.6,
+				Jitter:     0.2,
+				MaxDelay:   3 * time.Second,
+			},
+			MinConnectTimeout: time.Millisecond,
+		}),
+	}
 	clientOpts = append(clientOpts, []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(
@@ -78,7 +100,23 @@ func RegisterBridgerClient(opt *options.Options) *bridgerAgent {
 		),
 	}...)
 	if opt.ClientInterceptor != nil {
+		localLogging.WithField("action", "register-interceptor")
 		clientOpts = append(clientOpts, grpc.WithUnaryInterceptor(opt.ClientInterceptor))
+	}
+	if opt.KeepAliveTimeout != 0 && opt.KeepAliveTime != 0 {
+		localLogging.WithField("action", "configure-keepalive").
+			Info("The keepalive time should be the same as the server.")
+		clientOpts = append(clientOpts, grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                opt.KeepAliveTime,
+			Timeout:             opt.KeepAliveTimeout,
+			PermitWithoutStream: true,
+		}))
+	} else {
+		clientOpts = append(clientOpts, grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                options.DefaultKeepAlive,
+			Timeout:             options.DefaultKeepAliveTimeout,
+			PermitWithoutStream: true,
+		}))
 	}
 	for i := 0; i < opt.MinChannelSize; i++ {
 		status := true
@@ -108,15 +146,15 @@ func RegisterBridgerClient(opt *options.Options) *bridgerAgent {
 	return bridger
 }
 
-func (agent *bridgerAgent) Dispatch(domain string, v interface{}, callOPtions ...CallOptions) ([]byte, error) {
+func (agent *bridgerAgent) Dispatch(domain string, v interface{}, callOptions ...CallOptions) ([]byte, error) {
 	data, err := marshal(v)
 	if err != nil {
 		return nil, err
 	}
 	ctx := context.Background()
-	if len(callOPtions) != 0 {
-		if callOPtions[0].MetadataHeader != nil {
-			md := callOPtions[0].MetadataHeader
+	if len(callOptions) != 0 {
+		if callOptions[0].MetadataHeader != nil {
+			md := callOptions[0].MetadataHeader
 			for k, v := range md {
 				ctx = appendMetaData(ctx, k, v)
 			}
@@ -124,8 +162,8 @@ func (agent *bridgerAgent) Dispatch(domain string, v interface{}, callOPtions ..
 	}
 	var cancel context.CancelFunc
 	if agent.deadline != nil {
-		if len(callOPtions) > 0 && callOPtions[0].Ctx != nil {
-			ctx = callOPtions[0].Ctx
+		if len(callOptions) > 0 && callOptions[0].Ctx != nil {
+			ctx = callOptions[0].Ctx
 		} else {
 			ctx, cancel = context.WithTimeout(ctx, *agent.deadline)
 			defer cancel()

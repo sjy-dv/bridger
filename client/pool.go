@@ -16,6 +16,7 @@ type gRpcClientPool struct {
 	minpoolsize int
 	maxpoolsize int
 	poolSize    *atomic.Int32
+	maxsessions int32
 }
 
 type connectionpool struct {
@@ -50,7 +51,7 @@ func (proxy *gRpcClientPool) getConnection() *connectionpool {
 	proxy.mu.RLock()
 	defer proxy.mu.RUnlock()
 	for i, wrapper := range proxy.pool {
-		if wrapper.sessions.Load() <= 100 && wrapper.status {
+		if wrapper.sessions.Load() <= proxy.maxsessions && wrapper.status {
 			proxy.pool[i].lastCall = time.Now()
 			return proxy.pool[i]
 		}

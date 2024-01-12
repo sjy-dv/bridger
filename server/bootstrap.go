@@ -7,6 +7,7 @@ import (
 	"runtime"
 
 	_ "google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/keepalive"
 
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
@@ -79,6 +80,17 @@ func (b *bridger) RegisterBridgerServer(opt *options.Options) error {
 	if opt.ServerInterceptor != nil {
 		b.Logger.WithField("action", "grpc_configure_server_interceptor")
 		serverOptions = append(serverOptions, grpc.UnaryInterceptor(opt.ServerInterceptor))
+	}
+	if opt.KeepAliveTimeout != 0 && opt.KeepAliveTime != 0 {
+		serverOptions = append(serverOptions, grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    opt.KeepAliveTime,
+			Timeout: opt.KeepAliveTimeout,
+		}))
+	} else {
+		serverOptions = append(serverOptions, grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    options.DefaultKeepAlive,
+			Timeout: options.DefaultKeepAliveTimeout,
+		}))
 	}
 	dispatch := rpcDispatcher{}
 	dispatch.DispatchService = &dispatchService{dispatch}

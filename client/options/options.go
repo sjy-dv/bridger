@@ -18,6 +18,13 @@ type Options struct {
 		method string,
 		req, reply interface{},
 		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error
+	KeepAliveTimeout time.Duration
+	KeepAliveTime    time.Duration
+	MaxSession       int32
 }
 
 const DefaultMsgSize = 104858000 // 10mb
+const DialTimeout = 60 * time.Second
+const DefaultKeepAliveTimeout = 60 * time.Second
+const DefaultKeepAlive = 60 * time.Second
+const DefaultMaxSession = 100
