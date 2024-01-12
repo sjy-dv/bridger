@@ -17,8 +17,9 @@ type Options struct {
 		req interface{},
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler) (interface{}, error)
-	KeepAliveTimeout time.Duration
-	KeepAliveTime    time.Duration
+	KeepAliveTimeout         time.Duration
+	KeepAliveTime            time.Duration
+	EnforcementPolicyMinTime time.Duration
 }
 
 const (
@@ -34,5 +35,6 @@ const (
 )
 
 const DefaultMsgSize = 104858000 // 10mb
-const DefaultKeepAliveTimeout = 60 * time.Second
+const DefaultKeepAliveTimeout = 10 * time.Second
 const DefaultKeepAlive = 60 * time.Second
+const DefaultEnforcementPolicyMinTime = 5 * time.Second

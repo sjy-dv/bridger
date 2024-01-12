@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"runtime"
+	"time"
 
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/keepalive"
@@ -18,19 +19,19 @@ import (
 	"google.golang.org/grpc"
 )
 
-type bridger struct {
+type Bridger struct {
 	*dispatcher.DispatchAPI
 }
 
-func New() *bridger {
+func New() *Bridger {
 	dispatcher.DMap = make(map[string]func(ctx dispatcher.DispatchContext) *dispatcher.ResponseWriter)
 	api := &dispatcher.DispatchAPI{}
-	return &bridger{
+	return &Bridger{
 		api.NewDispatch(),
 	}
 }
 
-func (b *bridger) RegisterBridgerServer(opt *options.Options) error {
+func (b *Bridger) RegisterBridgerServer(opt *options.Options) error {
 	if opt.Port == 0 {
 		return errors.New("port must be specified")
 	}
@@ -81,7 +82,22 @@ func (b *bridger) RegisterBridgerServer(opt *options.Options) error {
 		b.Logger.WithField("action", "grpc_configure_server_interceptor")
 		serverOptions = append(serverOptions, grpc.UnaryInterceptor(opt.ServerInterceptor))
 	}
+	if opt.EnforcementPolicyMinTime != 0 {
+		b.Logger.WithField("action", "grpc_configure_keepalive_enforcement_policy").
+			Info("Be careful not to conflict with the client settings. Incorrect configuration can lead to the error [transport] Client received GoAway with error code ENHANCE_YOUR_CALM and debug data equal to ASCII 'too_many_pings'")
+		serverOptions = append(serverOptions, grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             opt.EnforcementPolicyMinTime,
+			PermitWithoutStream: true,
+		}))
+	} else {
+		serverOptions = append(serverOptions, grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             5 * time.Second,
+			PermitWithoutStream: true,
+		}))
+	}
 	if opt.KeepAliveTimeout != 0 && opt.KeepAliveTime != 0 {
+		b.Logger.WithField("action", "grpc_configure_keepalive").
+			Info("The keepalive time should be the same as the clients.")
 		serverOptions = append(serverOptions, grpc.KeepaliveParams(keepalive.ServerParameters{
 			Time:    opt.KeepAliveTime,
 			Timeout: opt.KeepAliveTimeout,

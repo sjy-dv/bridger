@@ -21,6 +21,7 @@ type Options struct {
 	KeepAliveTimeout time.Duration
 	KeepAliveTime    time.Duration
 	MaxSession       int32
+	Credentials      bool
 }
 
 const DefaultMsgSize = 104858000 // 10mb

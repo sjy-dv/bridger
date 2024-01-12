@@ -1,12 +1,13 @@
 package client
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/sjy-dv/bridger/client/options"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 type gRpcClientPool struct {
@@ -59,20 +60,15 @@ func (proxy *gRpcClientPool) getConnection() *connectionpool {
 	return nil
 }
 
-func (proxy *gRpcClientPool) establishedConnection() *grpc.ClientConn {
-	conn, err := grpc.Dial(proxy.addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil
-	}
-	return conn
-}
-
 func (proxy *gRpcClientPool) addConnection() *connectionpool {
 	proxy.mu.Lock()
 	defer proxy.mu.Unlock()
 	connection := &connectionpool{}
-	conn, err := grpc.Dial(proxy.addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	dialContext, cancel := context.WithTimeout(context.Background(), options.DialTimeout)
+	conn, err := grpc.DialContext(dialContext, proxy.addr,
+		reuseOpts...)
 	if err != nil {
+		cancel()
 		return nil
 	}
 	connection.connection = conn
@@ -80,6 +76,7 @@ func (proxy *gRpcClientPool) addConnection() *connectionpool {
 	connection.lastCall = time.Now()
 	proxy.pool = append(proxy.pool, connection)
 	proxy.poolSize.Add(1)
+	cancel()
 	return connection
 }
 

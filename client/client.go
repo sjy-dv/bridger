@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -13,17 +14,20 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/keepalive"
 )
 
-type bridgerAgent struct {
+type BridgerAgent struct {
 	*gRpcClientPool
 	deadline *time.Duration
 }
 
-func RegisterBridgerClient(opt *options.Options) *bridgerAgent {
+var reuseOpts = []grpc.DialOption{}
+
+func RegisterBridgerClient(opt *options.Options) *BridgerAgent {
 	localLogging := logrus.New()
 	if opt.MinChannelSize > opt.MaxChannelSize {
 		panic("min channel size can't exceed max channel size")
@@ -44,7 +48,7 @@ func RegisterBridgerClient(opt *options.Options) *bridgerAgent {
 		}
 		return options.DefaultMsgSize
 	}()
-	bridger := &bridgerAgent{}
+	bridger := &BridgerAgent{}
 	agents := &gRpcClientPool{}
 	agents.poolSize = &atomic.Int32{}
 	agents.maxpoolsize = func() int {
@@ -91,14 +95,18 @@ func RegisterBridgerClient(opt *options.Options) *bridgerAgent {
 			},
 			MinConnectTimeout: time.Millisecond,
 		}),
-	}
-	clientOpts = append(clientOpts, []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
 			grpc.MaxCallSendMsgSize(maxSendMsgSize),
 		),
-	}...)
+	}
+	if opt.Credentials {
+		clientOpts = append(clientOpts, grpc.WithTransportCredentials(
+			credentials.NewTLS(&tls.Config{})))
+	} else {
+		clientOpts = append(clientOpts, grpc.WithTransportCredentials(
+			insecure.NewCredentials()))
+	}
 	if opt.ClientInterceptor != nil {
 		localLogging.WithField("action", "register-interceptor")
 		clientOpts = append(clientOpts, grpc.WithUnaryInterceptor(opt.ClientInterceptor))
@@ -120,12 +128,14 @@ func RegisterBridgerClient(opt *options.Options) *bridgerAgent {
 	}
 	for i := 0; i < opt.MinChannelSize; i++ {
 		status := true
-		conn, err := grpc.Dial(agents.addr, clientOpts...)
+		dialContext, cancel := context.WithTimeout(context.Background(), options.DialTimeout)
+		conn, err := grpc.DialContext(dialContext, agents.addr, clientOpts...)
 		if err != nil {
 			conn = nil
 			status = false
 			localLogging.WithField("action", "bridger-established").
 				Info(fmt.Sprintf("bridger-connection-%d is not established", i+1))
+			cancel()
 			return nil
 		}
 		if conn != nil {
@@ -138,15 +148,17 @@ func RegisterBridgerClient(opt *options.Options) *bridgerAgent {
 			status:     status,
 			sessions:   &atomic.Int32{},
 		}
+		cancel()
 	}
-	bridger = &bridgerAgent{
+	reuseOpts = clientOpts
+	bridger = &BridgerAgent{
 		agents,
 		&opt.Timeout,
 	}
 	return bridger
 }
 
-func (agent *bridgerAgent) Dispatch(domain string, v interface{}, callOptions ...CallOptions) ([]byte, error) {
+func (agent *BridgerAgent) Dispatch(domain string, v interface{}, callOptions ...CallOptions) ([]byte, error) {
 	data, err := marshal(v)
 	if err != nil {
 		return nil, err
@@ -170,8 +182,12 @@ func (agent *bridgerAgent) Dispatch(domain string, v interface{}, callOptions ..
 		}
 	}
 
-	val, err := pb.NewBridgerClient(
-		agent.getConnection().connection).Dispatch(
+	cp := agent.getPool()
+	if cp == nil {
+		return nil, errors.New("connection is not connected")
+	}
+	defer agent.rollbackConnection(cp)
+	val, err := pb.NewBridgerClient(cp.connection).Dispatch(
 		ctx,
 		&pb.PayloadEmitter{
 			Payload: data,
@@ -187,7 +203,7 @@ func (agent *bridgerAgent) Dispatch(domain string, v interface{}, callOptions ..
 	return val.GetPayload(), nil
 }
 
-func (agents *bridgerAgent) Close() {
+func (agents *BridgerAgent) Close() {
 	for _, agent := range agents.pool {
 		agent.connection.Close()
 	}
